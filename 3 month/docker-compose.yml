@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  # 服务1：你的 FastAPI 后端
+  web:
+    build: .                 # 告诉 docker-compose，去当前目录找 Dockerfile 现场打包镜像
+    container_name: agent_api
+    ports:
+      - "8000:8000"          # 暴露给外网的端口
+    depends_on:
+      - db                   # 核心逻辑：告诉系统，必须等数据库 db 启动了，才能启动 web
+
+  # 服务2：MySQL 8.0 数据库
+  db:
+    image: mysql:8.0         # 直接拉取官方做好的纯净版 MySQL 8.0 镜像
+    container_name: agent_mysql
+    ports:
+      - "3306:3306"          # 为了你后续在本地用 Navicat 连服务器查数据，先把 3306 暴露出来
+    environment:
+      MYSQL_ROOT_PASSWORD: "ddac#af**%3"  # 数据库的 Root 密码，严禁改得太简单
+      MYSQL_DATABASE: agent_db               # 启动时自动创建一个名为 agent_db 的空库
+    volumes:
+      - mysql_data:/var/lib/mysql            # 核心防御：数据持久化。如果不写这个，容器一重启，你存的投资数据就全丢了！
+
+# 声明需要用到的硬盘卷
+volumes:
+  mysql_data:
