@@ -17,9 +17,9 @@ if __name__ == "__main__":
 
     users_input_password = input(str("Enter your password: "))
 
-    get_password_hash = pwd_context.hash(users_input_password)
+    get_password_hash_result = pwd_context.hash(users_input_password)
 
-    stored_hash = get_password_hash
+    stored_hash = get_password_hash_result
 
     is_correct = pwd_context.verify(users_input_password, stored_hash)
 

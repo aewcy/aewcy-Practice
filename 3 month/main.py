@@ -4,6 +4,7 @@ import models
 from database import engine, SessionLocal
 import security
 from pydantic import BaseModel
+from fastapi.security import OAuth2PasswordRequestForm
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -23,9 +24,6 @@ class CreateUser(BaseModel):
     username: str
     password: str
 
-class LoginUser(BaseModel):
-    username: str
-    password: str
 
 @app.post("/register")
 def register(user: CreateUser, db: Session = Depends(get_db)):
@@ -43,14 +41,16 @@ def register(user: CreateUser, db: Session = Depends(get_db)):
 
 
 @app.post("/login")
-def login(user: LoginUser, db: Session = Depends(get_db)):
+def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     # 从数据库查用户
-    db_user = db.query(models.User).filter(models.User.username == user.username).first()
+    db_user = db.query(models.User).filter(models.User.username == form_data.username).first()
     if not db_user:
-        raise HTTPException(status_code=400, detail="用户不存在")
+        raise HTTPException(status_code=400, detail="密码/用户名错误")
+    if not getattr(db_user,"is_active",True):
+        raise HTTPException(status_code=400, detail="用户被封禁")
 
-    is_valid = security.verify_password(user.password, db_user.hashed_password)
+    is_valid = security.verify_password(form_data.password, db_user.hashed_password)
     if not is_valid:
-        raise HTTPException(status_code=400, detail="密码错误")
+        raise HTTPException(status_code=400, detail="密码/用户名错误")
 
-    return {"message": "登录成功", "username": user.username}
+    return {"access_token": "fake-jwt-token-for-now", "token_type": "bearer"}
