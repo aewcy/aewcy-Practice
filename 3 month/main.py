@@ -47,7 +47,7 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     if not db_user:
         raise HTTPException(status_code=400, detail="密码/用户名错误")
     if not getattr(db_user,"is_active",True):
-        raise HTTPException(status_code=400, detail="用户被封禁")
+        raise HTTPException(status_code=401, detail="密码/用户名错误")
 
     is_valid = security.verify_password(form_data.password, db_user.hashed_password)
     if not is_valid:
