@@ -1,15 +1,15 @@
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
-import models
 from database import engine, SessionLocal
-import security
 from pydantic import BaseModel
 from fastapi.security import OAuth2PasswordRequestForm
+
+import models
+import security
 
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
-
 
 def get_db():
     """请求结束时自动关闭 session"""
