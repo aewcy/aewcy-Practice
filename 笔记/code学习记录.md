@@ -151,3 +151,113 @@ volumes:
 
 容器只负责放文件，保险箱由 Docker 保管。
 （这个deepseek讲的很清晰了，就不做理解更改贴上来了）
+
+3.17
+
+docker run -it --name work2 -v "C:\Users\90348\Documents\GitHub\aewcy-Practice:/workspace" -w /workspace python:3.11-slim bash  
+
+C:\Users\90348\Documents\GitHub\aewcy-Practice
+
+在本机上创建一个沙箱环境，需要先去网站上下载docker
+[Docker Desktop](https://www.docker.com/products/docker-desktop/)
+
+![image.png](image%202.png)
+
+在登陆完成后就去cmd打开shell上准备配置沙盒
+
+docker run 
+
+-it --name work2 
+
+-v "C:\Users\90348\Documents\GitHub\aewcy-Practice:/workspace" 
+
+-w /workspace python:3.11-slim bash  
+
+代码分为四个部分
+
+docker run是启动容器 ， -it是-i和-t的结合，分别代表的是保持容器的标准输入和为容器分配一个伪终端。—name work1 为容器命名为work1
+
+-v 挂载卷，看代码就是把本地指定路径的文件挂在到容器卷，以方便外部文件变化时能够同步给容器内的镜像文件
+
+-w 是workdir，指定工作文件，因为我们指定挂载卷是/workspace所以我们在这个文件操作，后面的py是选编译器镜像以让容器能够顺利运行代码，bash指定文件运行后移动shell
+
+3.18
+
+```python
+def create_access_token(data:dict , expires_delta:timedelta | None = None):
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datatime.now(timezone.utc) + expires_delta
+    else:
+        expire = datatime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+```
+
+制作jwt认证， 主要是验证用户密码并返回jwt认证信息
+
+def create_access_token(data:dict , expires_delta:timedelta | None = None):
+
+data为变量名，dict是字典传信息给data    第二个就是拿取过期时间，jwt鉴权只要是用来验证用户的，但不能永久验证，账户他会有注销，封禁等非正常状态。若jwt鉴权永久，会导致服务器风险增加
+
+to_encode = data.copy()
+
+复制一遍输入参数，防止因操作导致的修改会导致报错
+
+if判断，在前面def 如果传过来的过期时间是none，none不能参与运算，会报错。这个主要是给过期时间。
+
+to_encode.update({”exp”:expire})
+
+这个是时把exp的键值也传给to_encod，也就是to_encod有了({”data”:dict} , {”exp”:expire})
+
+encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+这个就是把jwt,encode运算完里面三个参数赋值给encoded_jwt，三个信息分别是
+1，用户名和密码，过期时间
+
+2，私钥
+
+3，加密算法
+
+然后return返回值
+
+```python
+
+def credentials_exception():
+    credentials_exception = HTTPException(
+        status_code = 401,
+        detail = "密码/用户名错误",
+        headers = {"WWW-Authenticate": "Bearer"},
+    )
+    raise credentials_exception
+    
+@app.post("/login")
+def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    # 从数据库查用户
+    db_user = db.query(models.User).filter(models.User.username == form_data.username).first()
+    if not db_user:
+        credentials_exception()
+
+    is_valid = security.verify_password(form_data.password, db_user.hashed_password)
+    if not is_valid:
+        credentials_exception()
+
+    if not getattr(db_user,"is_active",True):
+        credentials_exception()
+
+    return {"access_token": security.create_access_token(data={"sub": db_user.username}), "token_type": "bearer"}
+```
+
+@app.post(”/login”) 把login的请求放到这个函数上
+
+ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+
+form_data: OAuth2PasswordRequestForm = Depends()  作用是解析表单，将前端传回来来的表单转化成能够去调用的形式，既`username=test&password=123` 转化成{ "username": test, "password": 123 }
+
+第一个if 主要是判断是有否注册的用户，如果时未注册的则返回异常状态码401
+
+第二个if，主要判断密码是否正确，会先对传输进来的密码进行哈希，之后比较，若不匹配则传回异常状态码401
+
+第三个if，主要是怕段账户是否为异常状态，比如封禁那些，如果是也抛出异常状态401
