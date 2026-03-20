@@ -1,11 +1,13 @@
-from fastapi import FastAPI, Depends, HTTPException,status
+from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from database import engine, SessionLocal
 from pydantic import BaseModel
 
+
 import models
 import security
+from fake_users_db import fake_users_db, add_user, user_exists
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -24,7 +26,7 @@ class CreateUser(BaseModel):
     username: str
     password: str
 
-def credentials_exception():
+def User_credentials_exception():
     credentials_exception = HTTPException(
         status_code = 401,
         detail = "密码/用户名错误",
@@ -52,20 +54,46 @@ def register(user: CreateUser, db: Session = Depends(get_db)):
     return {"message": "用户注册成功", "username": user.username}
 
 
-
-
 @app.post("/login")
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    # 从数据库查用户
     db_user = db.query(models.User).filter(models.User.username == form_data.username).first()
     if not db_user:
-        credentials_exception()
+        User_credentials_exception()
 
     is_valid = security.verify_password(form_data.password, db_user.hashed_password)
     if not is_valid:
-        credentials_exception()
+        User_credentials_exception()
 
-    if not getattr(db_user,"is_active",True):
-        credentials_exception()
+    if not getattr(db_user, "is_active", True):
+        User_credentials_exception()
 
     return {"access_token": security.create_access_token(data={"sub": db_user.username}), "token_type": "bearer"}
+
+
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
+
+def get_current_user(token:str = Depends(oauth2_scheme),db:Session = Depends(get_db)):
+    get_credentials_exception = HTTPException(
+        status_code = 401,
+        detail = "错误凭证",
+        headers = {"WWW-Authenticate": "Bearer"}
+    )
+    try:
+        payload = security.jwt.decode(token, security.SECRET_KEY, algorithms=[security.ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise get_credentials_exception
+        db_user = db.query(models.User).filter(models.User.username == username).first()
+        if db_user is None:
+            raise get_credentials_exception 
+        return db_user
+    except JWTError:
+        raise get_credentials_exception 
+
+@app.get("/users/me")
+def get_authenticated_user_info(current_user: models.User = Depends(get_current_user)):
+    current_user_dict = {"username": current_user.username,
+    "id": current_user.id,
+    }
+    return current_user_dict
