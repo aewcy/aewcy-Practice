@@ -91,9 +91,18 @@ def get_current_user(token:str = Depends(oauth2_scheme),db:Session = Depends(get
     except JWTError:
         raise get_credentials_exception 
 
+def get_current_active_user(current_user: models.User = Depends(get_current_user)):
+    check_user_status_exception = HTTPException(
+    status_code = 403,
+    detail = "用户账户当前不可用"
+    )
+    if not current_user.is_active:
+        raise check_user_status_exception
+    return current_user
+
+
 @app.get("/users/me")
-def get_authenticated_user_info(current_user: models.User = Depends(get_current_user)):
+def get_authenticated_user_info(current_user: models.User = Depends(get_current_active_user)):    
     current_user_dict = {"username": current_user.username,
-    "id": current_user.id,
     }
     return current_user_dict
