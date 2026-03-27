@@ -64,9 +64,6 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     if not is_valid:
         User_credentials_exception()
 
-    if not getattr(db_user, "is_active", True):
-        User_credentials_exception()
-
     return {"access_token": security.create_access_token(data={"sub": db_user.username}), "token_type": "bearer"}
 
 
@@ -94,7 +91,7 @@ def get_current_user(token:str = Depends(oauth2_scheme),db:Session = Depends(get
 def get_current_active_user(current_user: models.User = Depends(get_current_user)):
     check_user_status_exception = HTTPException(
     status_code = 403,
-    detail = "用户账户当前不可用"
+    detail = "账户当前不可用"
     )
     if not current_user.is_active:
         raise check_user_status_exception
