@@ -2,6 +2,72 @@ import httpx
 from app.AppConfig import SAUCENAO_API_KEY
 
 
+def _contains_keywords(text: str | None, keywords: list[str]) -> bool:
+    """
+    作用：
+    - 判断一段文本里有没有出现指定关键词
+    - 这里主要给“漫画候选判断”用
+
+    参数：
+    text: 要检查的文本
+    keywords: 关键词列表，例如 ["manga", "comic"]
+
+    返回：
+    True  -> 命中关键词
+    False -> 没命中
+    """
+    if not text:
+        return False
+
+    lower_text = str(text).lower()
+    return any(keyword in lower_text for keyword in keywords)
+
+
+def is_manga_candidate(search_result: dict | None) -> bool:
+    """
+    作用：
+    - 根据 SauceNAO 的搜图结果，粗判断这次是不是“漫画候选”
+    - 这里只做“识别入口”，不做具体站点补全
+
+    判断依据：
+    1. index_name
+    2. source_url
+    3. raw_data 里的标题 / 来源字段
+    """
+    if not search_result:
+        return False
+
+    keywords = [
+        "manga",
+        "comic",
+        "doujin",
+        "doujinshi",
+    ]
+
+    index_name = search_result.get("index_name")
+    source_url = search_result.get("source_url")
+
+    raw_result = search_result.get("raw_data", {})
+    raw_header = raw_result.get("header", {})
+    raw_data = raw_result.get("data", {})
+
+    candidate_texts = [
+        index_name,
+        source_url,
+        raw_header.get("index_name"),
+        raw_data.get("title"),
+        raw_data.get("eng_name"),
+        raw_data.get("jp_name"),
+        raw_data.get("source"),
+    ]
+
+    for text in candidate_texts:
+        if _contains_keywords(text, keywords):
+            return True
+
+    return False
+
+
 async def search_image_by_saucenao(image_url: str) -> dict | None:
     """
     用 SauceNAO 根据图片 URL 搜索来源信息。
@@ -23,10 +89,10 @@ async def search_image_by_saucenao(image_url: str) -> dict | None:
     url = "https://saucenao.com/search.php"
 
     params = {
-        "output_type": 2,          # 2 表示返回 JSON
+        "output_type": 2,
         "api_key": SAUCENAO_API_KEY,
         "url": image_url,
-        "numres": 3,               # 最多返回前 3 条
+        "numres": 3,
     }
 
     try:

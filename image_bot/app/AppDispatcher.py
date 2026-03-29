@@ -1,5 +1,6 @@
 from app.AppParser import extract_reply_id, extract_image_urls
 from app.AppOnebot_api import get_msg
+from app.AppSearch_service import search_image_by_saucenao, is_manga_candidate
 
 
 async def dispatch_command(command: str | None, parsed: dict) -> str | None:
@@ -44,7 +45,36 @@ async def dispatch_command(command: str | None, parsed: dict) -> str | None:
         if not image_urls:
             return "引用的那条消息里没有图片"
 
-        # 先不接 SauceNAO，先验证到这里是否通了
-        return f"已拿到图片地址：{image_urls[0]}"
+        # 第四步：把图片地址交给 SauceNAO
+        search_result = await search_image_by_saucenao(image_urls[0])
+        print("dispatch -> search_result:", search_result)
+
+        if not search_result:
+            return "搜图失败，或者没有找到结果"
+
+        # 第五步：判断这是不是漫画候选
+        manga_candidate = is_manga_candidate(search_result)
+        print("dispatch -> manga_candidate:", manga_candidate)
+
+        similarity = search_result.get("similarity", "未知")
+        title = search_result.get("title", "未知")
+        source_url = search_result.get("source_url", "无")
+        index_name = search_result.get("index_name", "未知")
+
+        lines = [
+            "搜图结果：",
+            f"相似度：{similarity}",
+            f"标题：{title}",
+            f"来源：{source_url}",
+            f"索引：{index_name}",
+        ]
+
+        if manga_candidate:
+            lines.append("类型判断：漫画候选")
+            lines.append("后续可进入漫画信息补全流程")
+        else:
+            lines.append("类型判断：普通图片结果")
+
+        return "\n".join(lines)
 
     return None
