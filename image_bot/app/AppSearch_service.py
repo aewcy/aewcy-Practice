@@ -117,7 +117,7 @@ async def search_image_by_saucenao(image_url: str) -> dict | None:
         data = best_result.get("data", {})
 
         ext_urls = data.get("ext_urls", [])
-        source_url = ext_urls[0] if ext_urls else None
+        source_url = ext_urls[0] if ext_urls else data.get("source")
 
         title = (
             data.get("title")
