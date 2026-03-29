@@ -1,3 +1,5 @@
+import re
+
 def parse_event(data:dict) -> dict:
     return{
         "post_type": data.get("post_type"),
@@ -26,3 +28,12 @@ def extract_text(parsed:dict) -> str:
         return None
     
     return message
+
+def extract_reply_id(parsed:dict) -> str | None:
+    if not message:
+        return None
+    
+    message = message.strip()
+    if match:
+        return match.group(1)
+    return None
