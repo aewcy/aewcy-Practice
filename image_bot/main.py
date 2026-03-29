@@ -1,10 +1,11 @@
 from fastapi import FastAPI, Request, Body,Response
 
 
-from app.AppParser import parse_event, is_group_message, extract_text
+from app.AppParser import parse_event, is_group_message, extract_text, extract_reply_id, extract_image_urls
 from app.AppDispatcher import dispatch_command
 from app.AppOnebot_api import send_group_message
 from app.AppConfig import ALLOW_GROUP_IDS
+
 
 app = FastAPI() 
 
@@ -23,6 +24,8 @@ async def receive_event(data: dict = Body(...)):
 
     print("原始事件：", data)
     print("解析结果：", parsed)
+    print("提取文本：", extract_text(parsed))
+    print("reply_id:", extract_reply_id(parsed.get("message")))
 
     if not is_group_message(parsed):
         print("这不是群消息")
