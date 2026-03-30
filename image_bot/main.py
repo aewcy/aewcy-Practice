@@ -44,6 +44,7 @@ async def receive_event(data: dict = Body(...)):
 
     command = extract_text(parsed)
     print("提取文本命令：", command)
+    print("提取文本命令 repr：", repr(command))
     
     reply = await dispatch_command(command,parsed)
     print("响应：", reply)
