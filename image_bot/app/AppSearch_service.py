@@ -3,37 +3,13 @@ from app.AppConfig import SAUCENAO_API_KEY
 
 
 def _contains_keywords(text: str | None, keywords: list[str]) -> bool:
-    """
-    作用：
-    - 判断一段文本里有没有出现指定关键词
-    - 这里主要给“漫画候选判断”用
-
-    参数：
-    text: 要检查的文本
-    keywords: 关键词列表，例如 ["manga", "comic"]
-
-    返回：
-    True  -> 命中关键词
-    False -> 没命中
-    """
     if not text:
         return False
-
     lower_text = str(text).lower()
     return any(keyword in lower_text for keyword in keywords)
 
 
 def is_manga_candidate(search_result: dict | None) -> bool:
-    """
-    作用：
-    - 根据 SauceNAO 的搜图结果，粗判断这次是不是“漫画候选”
-    - 这里只做“识别入口”，不做具体站点补全
-
-    判断依据：
-    1. index_name
-    2. source_url
-    3. raw_data 里的标题 / 来源字段
-    """
     if not search_result:
         return False
 
@@ -42,6 +18,7 @@ def is_manga_candidate(search_result: dict | None) -> bool:
         "comic",
         "doujin",
         "doujinshi",
+        "nhentai",
     ]
 
     index_name = search_result.get("index_name")
@@ -68,23 +45,37 @@ def is_manga_candidate(search_result: dict | None) -> bool:
     return False
 
 
-async def search_image_by_saucenao(image_url: str) -> dict | None:
-    """
-    用 SauceNAO 根据图片 URL 搜索来源信息。
+def _build_candidate(best_result: dict) -> dict:
+    header = best_result.get("header", {})
+    data = best_result.get("data", {})
 
-    image_url: 要搜索的图片地址
-    return:
-        成功时返回一个字典，里面包含：
-        - similarity: 相似度
-        - title: 标题
-        - source_url: 来源链接
-        - index_name: 索引名称
-        - raw_data: 原始结果（方便以后调试）
-        失败时返回 None
+    ext_urls = data.get("ext_urls", [])
+    source_url = ext_urls[0] if ext_urls else data.get("source")
+
+    title = (
+        data.get("title")
+        or data.get("eng_name")
+        or data.get("jp_name")
+        or data.get("source")
+        or "未找到标题"
+    )
+
+    return {
+        "similarity": header.get("similarity"),
+        "title": title,
+        "source_url": source_url,
+        "index_name": header.get("index_name"),
+        "raw_data": best_result,
+    }
+
+
+async def search_image_candidates_by_saucenao(image_url: str) -> list[dict]:
+    """
+    返回 SauceNAO 前 3 条候选结果，给搜漫画分支使用。
     """
     if not SAUCENAO_API_KEY:
         print("[SauceNAO] API key 未配置")
-        return None
+        return []
 
     url = "https://saucenao.com/search.php"
 
@@ -103,38 +94,24 @@ async def search_image_by_saucenao(image_url: str) -> dict | None:
             print("[SauceNAO] body:", response.text[:1000])
 
             if response.status_code != 200:
-                return None
+                return []
 
             result = response.json()
 
         results = result.get("results", [])
         if not results:
-            return None
+            return []
 
-        best_result = results[0]
-
-        header = best_result.get("header", {})
-        data = best_result.get("data", {})
-
-        ext_urls = data.get("ext_urls", [])
-        source_url = ext_urls[0] if ext_urls else data.get("source")
-
-        title = (
-            data.get("title")
-            or data.get("eng_name")
-            or data.get("jp_name")
-            or data.get("source")
-            or "未找到标题"
-        )
-
-        return {
-            "similarity": header.get("similarity"),
-            "title": title,
-            "source_url": source_url,
-            "index_name": header.get("index_name"),
-            "raw_data": best_result,
-        }
+        return [_build_candidate(item) for item in results[:3]]
 
     except Exception as e:
         print("[SauceNAO] error:", e)
-        return None
+        return []
+
+
+async def search_image_by_saucenao(image_url: str) -> dict | None:
+    """
+    保持给“搜图”用：默认取第一条候选。
+    """
+    candidates = await search_image_candidates_by_saucenao(image_url)
+    return candidates[0] if candidates else None
