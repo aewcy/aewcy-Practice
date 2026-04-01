@@ -71,7 +71,7 @@ def _build_candidate(best_result: dict) -> dict:
 
 async def search_image_candidates_by_saucenao(image_url: str) -> list[dict]:
     """
-    返回 SauceNAO 前 3 条候选结果，给搜漫画分支使用。
+    返回 SauceNAO 前 10 条候选结果，给搜漫画分支使用。
     """
     if not SAUCENAO_API_KEY:
         print("[SauceNAO] API key 未配置")
@@ -83,7 +83,7 @@ async def search_image_candidates_by_saucenao(image_url: str) -> list[dict]:
         "output_type": 2,
         "api_key": SAUCENAO_API_KEY,
         "url": image_url,
-        "numres": 3,
+        "numres": 10,
     }
 
     try:

@@ -4,3 +4,7 @@ python-dotenv
 requests
 httpx
 nonebot-plugin-guild-patch
+psutil
+pillow
+jmcomic
+ 
