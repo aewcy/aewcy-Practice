@@ -1,4 +1,6 @@
-from fastapi import FastAPI, Request, Body,Response
+from fastapi import FastAPI, Request, Body, Response
+from pathlib import Path
+from fastapi.staticfiles import StaticFiles
 
 
 from app.AppParser import parse_event, is_group_message, extract_text, extract_reply_id, extract_image_urls
@@ -7,7 +9,12 @@ from app.AppOnebot_api import send_group_message
 from app.AppConfig import ALLOW_GROUP_IDS
 
 
-app = FastAPI() 
+app = FastAPI()
+
+PUBLIC_DIR = Path("/workspace/cache/jm_download")
+PUBLIC_DIR.mkdir(parents=True, exist_ok=True)
+
+app.mount("/public", StaticFiles(directory=str(PUBLIC_DIR)), name="public")
 
 @app.get("/metrics")
 async def dummy_metrics():

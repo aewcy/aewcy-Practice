@@ -16,7 +16,9 @@ AVAILABLE_COMMANDS = [
 ]
 
 
-async def dispatch_command(command: str, parsed: dict) -> str:
+async def dispatch_command(command: str | None, parsed: dict) -> str:
+    if command is None:
+        return "" 
 
     if command in {"搜漫画", ".搜漫画"}:
         image_url, error_message = await _get_reply_image_url(parsed)

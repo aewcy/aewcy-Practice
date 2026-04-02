@@ -1,7 +1,6 @@
 import os
-import base64
 import httpx
-from app.AppConfig import NAPCAT_API_URL, NAPCAT_TOKEN
+from app.AppConfig import NAPCAT_API_URL, NAPCAT_TOKEN, PUBLIC_BASE_URL
 
 
 def build_headers() -> dict:
@@ -98,59 +97,69 @@ async def get_reply_image_url(parsed: dict) -> tuple[str | None, str | None]:
     return image_urls[0], None
 
 
+def build_public_file_url(file_path: str) -> str:
+    """
+    把容器内文件路径转换为 FastAPI 可公开访问的 URL。
+    例如：
+    /workspace/cache/jm_download/903485102/86632/86632.pdf
+    ->
+    http://192.168.61.128:8000/public/903485102/86632/86632.pdf
+    """
+    prefix = "/workspace/cache/jm_download/"
+    normalized = file_path.replace("\\", "/")
+
+    if not normalized.startswith(prefix):
+        raise ValueError(f"文件路径不在公开目录下: {file_path}")
+
+    relative_path = normalized[len(prefix):]
+    return f"{PUBLIC_BASE_URL}/public/{relative_path}"
+
+
 async def upload_group_file(group_id: int, file_path: str) -> dict | None:
     """
     上传文件到群文件列表。
-    返回上传后的文件信息，失败返回 None。
-    先尝试 base64 JSON 格式，失败后自动 fallback 到 multipart。
+    这里不传 base64，不传 multipart，不传本地路径。
+    直接传 FastAPI 暴露出来的 HTTP 下载地址。
     """
     url = f"{NAPCAT_API_URL}/upload_group_file"
     file_name = os.path.basename(file_path)
+
+    if not os.path.exists(file_path):
+        print("[upload_group_file] file not found:", file_path)
+        return None
+
     try:
-        with open(file_path, "rb") as f:
-            file_data = base64.b64encode(f.read()).decode("utf-8")
-        payload = {
-            "group_id": group_id,
-            "file": file_data,
-            "name": file_name,
-        }
+        public_url = build_public_file_url(file_path)
+    except Exception as e:
+        print("[upload_group_file] build_public_file_url error:", e)
+        return None
+
+    payload = {
+        "group_id": group_id,
+        "file": public_url,
+        "name": file_name,
+    }
+
+    try:
         async with httpx.AsyncClient(timeout=120) as client:
             response = await client.post(
                 url,
                 json=payload,
-                headers=build_headers()
+                headers=build_headers(),
             )
             print("[upload_group_file] status:", response.status_code)
-            print("[upload_group_file] body:", response.text[:200])
+            print("[upload_group_file] payload:", payload)
+            print("[upload_group_file] body:", response.text[:500])
+
             result = response.json()
             if result.get("status") == "ok":
                 return result.get("data")
-    except Exception as e:
-        print("[upload_group_file] base64 error:", e)
 
-    # base64 JSON 失败，尝试 multipart fallback
-    try:
-        with open(file_path, "rb") as f:
-            files = {"file": (file_name, f)}
-            data = {"group_id": group_id, "folder": "/"}
-            async with httpx.AsyncClient(timeout=120) as client:
-                response = await client.post(
-                    url,
-                    data=data,
-                    files=files,
-                    headers=build_headers()
-                )
-                print("[upload_group_file] multipart status:", response.status_code)
-                print("[upload_group_file] multipart body:", response.text[:200])
-                if response.status_code != 200:
-                    print("[upload_group_file] multipart HTTP error:", response.status_code, response.text)
-                result = response.json()
-                if result.get("status") == "ok":
-                    return result.get("data")
-    except Exception as e:
-        print("[upload_group_file] multipart error:", e)
+            return None
 
-    return None
+    except Exception as e:
+        print("[upload_group_file] error:", e)
+        return None
 
 
 async def get_group_root_files(group_id: int) -> list[dict]:
@@ -178,6 +187,68 @@ async def get_group_root_files(group_id: int) -> list[dict]:
         return []
 
 
+async def upload_to_fileio(file_path: str) -> str | None:
+    """
+    将文件上传到 file.io，返回下载 URL。失败返回 None。
+    """
+    url = "https://file.io/"
+    file_name = os.path.basename(file_path)
+
+    if not os.path.exists(file_path):
+        print("[upload_to_fileio] file not found:", file_path)
+        return None
+
+    try:
+        with open(file_path, "rb") as f:
+            files = {"file": (file_name, f)}
+            async with httpx.AsyncClient(timeout=120, follow_redirects=True) as client:
+                response = await client.post(url, files=files)
+
+        print("[upload_to_fileio] status:", response.status_code)
+        print("[upload_to_fileio] final_url:", str(response.url))
+        print("[upload_to_fileio] headers location:", response.headers.get("location"))
+        print("[upload_to_fileio] body:", response.text[:300])
+
+        if response.status_code != 200:
+            return None
+
+        result = response.json()
+        if result.get("success") is True:
+            return result.get("link")
+
+        return None
+
+    except Exception as e:
+        print("[upload_to_fileio] error:", e)
+        return None
+
+async def upload_group_file_by_url(group_id: int, file_url: str, file_name: str) -> dict | None:
+    """
+    通过下载 URL 将文件上传到群文件列表。
+    """
+    url = f"{NAPCAT_API_URL}/upload_group_file"
+    payload = {
+        "group_id": group_id,
+        "uri": file_url,
+        "name": file_name,
+    }
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.post(
+                url,
+                json=payload,
+                headers=build_headers()
+            )
+            print("[upload_group_file_by_url] status:", response.status_code)
+            print("[upload_group_file_by_url] body:", response.text[:200])
+            result = response.json()
+            if result.get("status") == "ok":
+                return result.get("data")
+            return None
+    except Exception as e:
+        print("[upload_group_file_by_url] error:", e)
+        return None
+
 async def delete_group_file(group_id: int, file_id: str, busid: int) -> bool:
     """
     删除群文件。
@@ -186,20 +257,22 @@ async def delete_group_file(group_id: int, file_id: str, busid: int) -> bool:
     payload = {
         "group_id": group_id,
         "file_id": file_id,
-        "busid": busid
+        "busid": busid,
     }
+
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=30) as client:
             response = await client.post(
                 url,
                 json=payload,
                 headers=build_headers(),
-                timeout=10
             )
             print("[delete_group_file] status:", response.status_code)
-            print("[delete_group_file] body:", response.text[:200])
+            print("[delete_group_file] body:", response.text[:300])
+
             result = response.json()
             return result.get("status") == "ok"
+
     except Exception as e:
         print("[delete_group_file] error:", e)
         return False

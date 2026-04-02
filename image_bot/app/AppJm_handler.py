@@ -31,6 +31,7 @@ async def send_group_file(group_id: int, file_path: str, file_name: str):
             f"阁下需要的资源体积较大（{file_size_mb:.2f} MB），请耐心等待…"
         )
 
+    await send_group_message(group_id, "正在提交到群文件...")
     uploaded = await upload_group_file(group_id, file_path)
     if not uploaded:
         await send_group_message(group_id, "文件上传失败，NapCat 可能不支持此操作，请检查 NapCat 配置")

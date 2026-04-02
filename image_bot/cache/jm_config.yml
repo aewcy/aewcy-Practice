@@ -16,7 +16,7 @@ client:
       impersonate: chrome110
       proxies: {}
     type: cffi
-  retry_times: 2
+  retry_times: 5
 dir_rule:
   base_dir: /workspace/cache/jm_download
   rule: Bd_Pname
@@ -26,8 +26,8 @@ download:
     decode: true
     suffix: null
   threading:
-    image: 30
-    photo: 16
+    image: 6
+    photo: 3
 log: true
 plugins:
   valid: log
