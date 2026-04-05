@@ -2,7 +2,6 @@ from fastapi import FastAPI, Request, Body, Response
 from pathlib import Path
 from fastapi.staticfiles import StaticFiles
 
-
 from app.AppParser import parse_event, is_group_message, extract_text, extract_reply_id, extract_image_urls
 from app.AppDispatcher import dispatch_command
 from app.AppOnebot_api import send_group_message

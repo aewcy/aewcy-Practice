@@ -4,7 +4,8 @@ from pathlib import Path
 import asyncio
 from jmcomic import create_option, download_album
 
-CACHE_DIR = Path(__file__).resolve().parent.parent / "cache"
+BASE_DIR = Path(__file__).resolve().parent
+CACHE_DIR = BASE_DIR / "cache"
 JM_CONFIG_FILE = CACHE_DIR / "jm_config.yml"
 JM_DOWNLOAD_DIR = CACHE_DIR / "jm_download"
 
@@ -42,13 +43,13 @@ def safe_cleanup(user_id: str, album_id: str):
     if album_path.exists():
         try:
             shutil.rmtree(album_path)
-            print(f"[CLEANUP] Deleted album: {album_path}")
+            print(f"[CLEANUP] ✔ Deleted album: {album_path}")
         except Exception as e:
-            print(f"[CLEANUP ERROR] Failed to delete album dir: {e}")
+            print(f"[CLEANUP ERROR] ❌ Failed to delete album dir: {e}")
 
     if user_path.exists() and not any(user_path.iterdir()):
         try:
             shutil.rmtree(user_path)
-            print(f"[CLEANUP] Deleted empty user dir: {user_path}")
+            print(f"[CLEANUP] ✔ Deleted empty user dir: {user_path}")
         except Exception as e:
-            print(f"[CLEANUP ERROR] Failed to delete user dir: {e}")
+            print(f"[CLEANUP ERROR] ❌ Failed to delete user dir: {e}")

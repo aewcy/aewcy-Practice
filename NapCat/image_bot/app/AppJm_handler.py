@@ -39,7 +39,7 @@ async def send_group_file(group_id: int, file_path: str, file_name: str):
 
     await send_group_message(
         group_id,
-        f"[文件]{file_name} 上传成功，奇美拉将在一分半后销毁它…"
+        f"[文件]{file_name} 上传成功，野寻将在一分半后销毁它…"
     )
 
     await asyncio.sleep(5)
@@ -52,7 +52,7 @@ async def send_group_file(group_id: int, file_path: str, file_name: str):
     if not target_file:
         await send_group_message(
             group_id,
-            "上传后未找到群文件，可能已经被奇美拉弄坏了..."
+            "上传后未找到群文件，可能已经被野寻弄坏了..."
         )
         return
 
