@@ -1,0 +1,47 @@
+- name: 自动化配置环境并部署 Node.js 后端服务
+  hosts: webservers       # 对应你主机清单里的组名
+  become: yes             # 提权到 root，因为安装软件需要权限
+
+  tasks:
+    - name: 1. 确保系统基础软件包是最新的 (以 Debian/Ubuntu 为例)
+      apt:
+        update_cache: yes
+        upgrade: dist
+
+    - name: 2. 安装 Docker 所需的基础依赖
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - software-properties-common
+        state: present
+
+    - name: 3. 安装 Docker 本身 (简化版演示)
+      apt:
+        name: docker.io
+        state: present
+
+    - name: 4. 确保 Docker 服务已启动并设置开机自启
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: 5. 确保 Python 的 Docker SDK 已安装 (Ansible 管理 Docker 需要)
+      pip:
+        name: docker
+        state: present
+
+    - name: 6. 运行后端的 Node.js Docker 容器
+      docker_container:
+        name: my_api_service
+        image: node:18-alpine     # 你的后端运行环境
+        state: started
+        restart_policy: always
+        ports:
+          - "8080:8080"           # 端口映射
+        volumes:
+          - /opt/my_project:/app  # 将代码目录挂载进容器
+        working_dir: /app
+        command: "npm start"      # 启动容器时的命令
